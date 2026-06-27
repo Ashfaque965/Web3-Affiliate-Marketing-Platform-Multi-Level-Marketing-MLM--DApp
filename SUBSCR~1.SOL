@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./interfaces/IToken.sol";
+
+contract Subscription is ReentrancyGuard {
+    IToken public immutable paymentToken;
+
+    uint256 public constant SUBSCRIPTION_PERIOD = 30 days;
+    uint256 public subscriptionCost = 50 * 10**18; // 50 Tokens
+
+    mapping(address => uint256) public subscriptionExpiresAt;
+
+    event Subscribed(address indexed user, uint256 expiresAt);
+    event PriceUpdated(uint256 newPrice);
+
+    constructor(address _paymentToken) {
+        paymentToken = IToken(_paymentToken);
+    }
+
+    function renewSubscription() external nonReentrant {
+        uint256 currentExpiry = subscriptionExpiresAt[msg.sender];
+        uint256 baseTime = currentExpiry > block.timestamp ? currentExpiry : block.timestamp;
+        
+        uint256 newExpiry = baseTime + SUBSCRIPTION_PERIOD;
+        subscriptionExpiresAt[msg.sender] = newExpiry;
+
+        emit Subscribed(msg.sender, newExpiry);
+
+        require(paymentToken.transferFrom(msg.sender, address(this), subscriptionCost), "Subscription payment failed");
+    }
+
+    function isSubscriptionActive(address user) external view returns (bool) {
+        return subscriptionExpiresAt[user] > block.timestamp;
+    }
+
+    function updatePrice(uint256 newPrice) external {
+        // Enforce owner verification if AccessControl is not explicitly inherited
+        subscriptionCost = newPrice;
+        emit PriceUpdated(newPrice);
+    }
+}

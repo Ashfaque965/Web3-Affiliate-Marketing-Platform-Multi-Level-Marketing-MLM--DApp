@@ -1,0 +1,27 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
+contract KYCRegistry is AccessControl {
+    bytes32 public constant VERIFIER_ROLE = keccak256("VERIFIER_ROLE");
+
+    mapping(address => bool) private _kycStatus;
+
+    event KYCStatusUpdated(address indexed user, bool indexed isVerified);
+
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(VERIFIER_ROLE, msg.sender);
+    }
+
+    function setKYCStatus(address user, bool status) external onlyRole(VERIFIER_ROLE) {
+        require(user != address(0), "Invalid address target");
+        _kycStatus[user] = status;
+        emit KYCStatusUpdated(user, status);
+    }
+
+    function isVerified(address user) external view returns (bool) {
+        return _kycStatus[user];
+    }
+}

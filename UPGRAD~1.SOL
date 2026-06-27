@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
+contract UpgradeManager is AccessControl {
+    bytes32 public constant ARCHITECT_ROLE = keccak256("ARCHITECT_ROLE");
+
+    // Maps: Contract identifier hash => Current implementation address
+    mapping(bytes32 => address) private _contractRegistry;
+
+    event ContractUpgraded(bytes32 indexed contractKey, address indexed oldAddress, address indexed newAddress);
+
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(ARCHITECT_ROLE, msg.sender);
+    }
+
+    function registerContract(string calldata contractName, address implementation) external onlyRole(ARCHITECT_ROLE) {
+        bytes32 key = keccak256(abi.encodePacked(contractName));
+        address oldAddress = _contractRegistry[key];
+        _contractRegistry[key] = implementation;
+
+        emit ContractUpgraded(key, oldAddress, implementation);
+    }
+
+    function getContractAddress(string calldata contractName) external view returns (address) {
+        bytes32 key = keccak256(abi.encodePacked(contractName));
+        address currentAddress = _contractRegistry[key];
+        require(currentAddress != address(0), "Target contract registry key unmapped");
+        return currentAddress;
+    }
+}

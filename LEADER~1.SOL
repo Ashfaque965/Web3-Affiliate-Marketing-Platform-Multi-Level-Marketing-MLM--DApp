@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
+contract Leaderboard is AccessControl {
+    bytes32 public constant SCORER_ROLE = keccak256("SCORER_ROLE");
+
+    struct UserScore {
+        address user;
+        uint256 score;
+    }
+
+    uint256 public constant MAX_LEADERBOARD_SIZE = 10;
+    UserScore[] public topPerformers;
+
+    mapping(address => uint256) public userScores;
+
+    event ScoreUpdated(address indexed user, uint256 newScore);
+
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(SCORER_ROLE, msg.sender);
+    }
+
+    /**
+     * @notice Updates a user's points score and re-evaluates their standing on the leaderboard.
+     */
+    function updateScore(address user, uint256 additionalScore) external onlyRole(SCORER_ROLE) {
+        userScores[user] += additionalScore;
+        uint256 currentScore = userScores[user];
+
+        emit ScoreUpdated(user, currentScore);
+        _arrangeLeaderboard(user, currentScore);
+    }
+
+    function _arrangeLeaderboard(address user, uint256 score) internal {
+        // Check if user is already listed in top standings
+        int256 existingIndex = -1;
+        for (uint256 i = 0; i < topPerformers.length; i++) {
+            if (topPerformers[i].user == user) {
+                existingIndex = int256(i);
+                break;
+            }
+        }
+
+        if (existingIndex >= 0) {
+            topPerformers[uint256(existingIndex)].score = score;
+        } else {
+            if (topPerformers.length < MAX_LEADERBOARD_SIZE) {
+                topPerformers.push(UserScore({user: user, score: score}));
+            } else if (score > topPerformers[topPerformers.length - 1].score) {
+                topPerformers[topPerformers.length - 1] = UserScore({user: user, score: score});
+            } else {
+                return; // Does not qualify for top tier slot assignment
+            }
+        }
+
+        // Sort descending using standard insertion bubble variant
+        for (uint256 i = topPerformers.length; i > 1; i--) {
+            if (topPerformers[i - 1].score > topPerformers[i - 2].score) {
+                UserScore memory temp = topPerformers[i - 2];
+                topPerformers[i - 2] = topPerformers[i - 1];
+                topPerformers[i - 1] = temp;
+            } else {
+                break;
+            }
+        }
+    }
+
+    function getTopPerformers() external view returns (UserScore[] memory) {
+        return topPerformers;
+    }
+}

@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/access/AccessControl.sol";
+
+contract PriceOracle is AccessControl {
+    bytes32 public constant REPORTER_ROLE = keccak256("REPORTER_ROLE");
+
+    struct PriceData {
+        uint256 price;
+        uint256 lastUpdated;
+    }
+
+    // Maps: Asset symbol string hash => Price Data structural node
+    mapping(bytes32 => PriceData) private _prices;
+
+    event PriceUpdated(string asset, uint256 price, uint256 timestamp);
+
+    constructor() {
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(REPORTER_ROLE, msg.sender);
+    }
+
+    function updatePrice(string calldata asset, uint256 newPrice) external onlyRole(REPORTER_ROLE) {
+        bytes32 assetKey = keccak256(abi.encodePacked(asset));
+        _prices[assetKey] = PriceData({
+            price: newPrice,
+            lastUpdated: block.timestamp
+        });
+
+        emit PriceUpdated(asset, newPrice, block.timestamp);
+    }
+
+    function getPrice(string calldata asset) external view returns (uint256 price, uint256 lastUpdated) {
+        bytes32 assetKey = keccak256(abi.encodePacked(asset));
+        PriceData memory data = _prices[assetKey];
+        require(data.lastUpdated > 0, "Asset price feed not initialized");
+        return (data.price, data.lastUpdated);
+    }
+}

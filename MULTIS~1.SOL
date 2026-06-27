@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
+contract MultiSigWallet is ReentrancyGuard {
+    address[] public owners;
+    mapping(address => bool) public isOwner;
+    uint256 public requiredSignatures;
+
+    struct Transaction {
+        address destination;
+        uint256 value;
+        bytes data;
+        bool executed;
+        uint256 approvalCount;
+    }
+
+    Transaction[] public transactions;
+    // Maps: Transaction ID => (Owner Address => Approved Boolean)
+    mapping(uint256 => mapping(address => bool)) public approvals;
+
+    event Deposit(address indexed sender, uint256 amount);
+    event TransactionSubmitted(uint256 indexed txId, address indexed destination, uint256 value);
+    event TransactionApproved(uint256 indexed txId, address indexed owner);
+    event TransactionExecuted(uint256 indexed txId);
+
+    modifier onlyOwner() {
+        require(isOwner[msg.sender], "Not a wallet owner");
+        _;
+    }
+
+    constructor(address[] memory _owners, uint256 _requiredSignatures) {
+        require(_owners.length > 0, "Owners required");
+        require(_requiredSignatures > 0 && _requiredSignatures <= _owners.length, "Invalid signature threshold");
+
+        for (uint256 i = 0; i < _owners.length; i++) {
+            address owner = _owners[i];
+            require(owner != address(0), "Invalid owner address");
+            require(!isOwner[owner], "Duplicate owner detected");
+
+            isOwner[owner] = true;
+            owners.push(owner);
+        }
+        requiredSignatures = _requiredSignatures;
+    }
+
+    receive() external payable {
+        emit Deposit(msg.sender, msg.value);
+    }
+
+    function submitTransaction(address destination, uint256 value, bytes calldata data) external onlyOwner {
+        uint256 txId = transactions.length;
+        
+        transactions.push(Transaction({
+            destination: destination,
+            value: value,
+            data: data,
+            executed: false,
+            approvalCount: 0
+        }));
+
+        emit TransactionSubmitted(txId, destination, value);
+        approveTransaction(txId); // Auto-approve for the creator
+    }
+
+    function approveTransaction(uint256 txId) public onlyOwner {
+        require(txId < transactions.length, "Transaction does not exist");
+        require(!transactions[txId].executed, "Transaction already executed");
+        require(!approvals[txId][msg.sender], "Transaction already approved by this owner");
+
+        approvals[txId][msg.sender] = true;
+        transactions[txId].approvalCount++;
+
+        emit TransactionApproved(txId, msg.sender);
+    }
+
+    function executeTransaction(uint256 txId) external onlyOwner nonReentrant {
+        Transaction storage txn = transactions[txId];
+        require(txId < transactions.length, "Transaction does not exist");
+        require(!txn.executed, "Transaction already executed");
+        require(txn.approvalCount >= requiredSignatures, "Insufficient approval weight");
+
+        txn.executed = true;
+
+        (bool success, ) = txn.destination.call{value: txn.value}(txn.data);
+        require(success, "Transaction call execution failed");
+
+        emit TransactionExecuted(txId);
+    }
+}

@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "./interfaces/IToken.sol";
+
+contract Marketplace is ReentrancyGuard {
+    IToken public immutable paymentToken;
+
+    struct Listing {
+        address seller;
+        uint256 price;
+        bool isActive;
+    }
+
+    // Maps: Item ID => Listing Node
+    mapping(uint256 => Listing) public listings;
+    uint256 public itemCounter;
+
+    event ItemListed(uint256 indexed itemId, address indexed seller, uint256 price);
+    event ItemSold(uint256 indexed itemId, address indexed buyer, address indexed seller, uint256 price);
+    event ListingCanceled(uint256 indexed itemId);
+
+    constructor(address _paymentToken) {
+        paymentToken = IToken(_paymentToken);
+    }
+
+    function listProduct(uint256 price) external returns (uint256) {
+        require(price > 0, "Price must exceed zero");
+        
+        uint256 itemId = itemCounter++;
+        listings[itemId] = Listing({
+            seller: msg.sender,
+            price: price,
+            isActive: true
+        });
+
+        emit ItemListed(itemId, msg.sender, price);
+        return itemId;
+    }
+
+    function purchaseProduct(uint256 itemId) external nonReentrant {
+        Listing storage item = listings[itemId];
+        require(item.isActive, "Listing is not active");
+        require(msg.sender != item.seller, "Cannot purchase your own listing");
+
+        item.isActive = false;
+
+        emit ItemSold(itemId, msg.sender, item.seller, item.price);
+        
+        // Execute financial value swap settlements
+        require(paymentToken.transferFrom(msg.sender, item.seller, item.price), "Marketplace escrow transfer failed");
+    }
+
+    function cancelListing(uint256 itemId) external {
+        Listing storage item = listings[itemId];
+        require(msg.sender == item.seller, "Not the item owner");
+        require(item.isActive, "Item is not active");
+
+        item.isActive = false;
+        emit ListingCanceled(itemId);
+    }
+}
