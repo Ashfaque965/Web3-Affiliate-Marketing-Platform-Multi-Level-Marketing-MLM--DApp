@@ -14,6 +14,8 @@ Every transaction is transparent, verifiable, and immutable on-chain.
 
 ---
 
+https://github.com/Ashfaque965/Web3-Affiliate-Marketing-Platform-Multi-Level-Marketing-MLM--DApp
+
 ## ✨ Key Features
 
 * 🔐 Secure Wallet Authentication
@@ -203,6 +205,8 @@ In this complete blockchain project, we combine Solidity smart contracts, Next.j
 ```
 
 
+
+https://github.com/Ashfaque965/Web3-Affiliate-Marketing-Platform-Multi-Level-Marketing-MLM--DApp
 ```
 
 #### FINAL SOURCE CODE
@@ -552,6 +556,11 @@ For support and questions:
 - [RainbowKit Documentation](https://rainbowkit.com)
 - [Tailwind CSS Documentation](https://tailwindcss.com/docs)
 
----
+---Ashfaque965
+
+https://github.com/Ashfaque965
 
 **Built with ❤️ for the LinkTum Matrix ecosystem**
+
+
+https://github.com/Ashfaque965/Web3-Affiliate-Marketing-Platform-Multi-Level-Marketing-MLM--DApp
